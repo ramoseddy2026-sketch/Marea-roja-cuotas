@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#c90022">
+<link rel="manifest" href="manifest.json">
+<title>Marea Roja Cuotas</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
+header{background:linear-gradient(135deg,#c90022,#8f0018);color:white;padding:22px 18px 26px;border-radius:0 0 24px 24px}
+header h1{margin:0;font-size:28px}header p{margin:5px 0 0;opacity:.9}
+main{max-width:760px;margin:auto;padding:16px}
+.card{background:white;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 4px 15px #00000010}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{background:#fff;padding:14px;border-radius:15px;text-align:center}.stat b{display:block;font-size:22px}.stat small{color:#666}
+button{border:0;border-radius:12px;padding:12px 15px;font-weight:bold;cursor:pointer}
+.primary{background:#c90022;color:white}.blue{background:#123c78;color:white}.danger{background:#eee;color:#a00018}
+input,select{width:100%;padding:12px;border:1px solid #ddd;border-radius:11px;margin-top:6px;margin-bottom:10px;font-size:16px}
+label{font-size:13px;font-weight:bold;color:#444}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.player{border:1px solid #eee;border-radius:15px;padding:14px;margin-top:10px}
+.player h3{margin:0 0 5px}.badge{display:inline-block;padding:5px 9px;border-radius:99px;font-size:12px;font-weight:bold}.paid{background:#d9f7e4;color:#087a36}.debt{background:#ffe0e5;color:#a00018}
+.hidden{display:none}.search{margin-bottom:8px}
+footer{text-align:center;color:#777;font-size:12px;padding:15px}
+</style>
+</head>
+<body>
+<header><h1>🔴 MAREA ROJA F.C.</h1><p>Control de cuotas</p></header>
+<main>
+<section class="stats">
+<div class="stat"><b id="total">0</b><small>Jugadores</small></div>
+<div class="stat"><b id="paid">0</b><small>Pagaron</small></div>
+<div class="stat"><b id="debt">0</b><small>Deben</small></div>
+</section>
+
+<section class="card">
+<div class="actions">
+<button class="primary" onclick="showForm()">➕ Agregar jugador</button>
+<button class="blue" onclick="exportData()">💾 Copia de seguridad</button>
+</div>
+</section>
+
+<section id="formCard" class="card hidden">
+<h2 id="formTitle">Nuevo jugador</h2>
+<div class="grid">
+<div><label>Nombre y apellido</label><input id="name" placeholder="Ej.: Juan Pérez"></div>
+<div><label>Categoría</label><input id="cat" placeholder="Ej.: 2014/2015"></div>
+</div>
+<label>Mes</label><select id="month"></select>
+<label>Monto de cuota</label><input id="amount" type="number" inputmode="numeric" placeholder="Ej.: 10000">
+<label>Estado</label><select id="status"><option value="debe">🔴 Debe</option><option value="pago">🟢 Pagó</option></select>
+<label>Medio de pago</label><select id="method"><option>Efectivo</option><option>Transferencia</option></select>
+<label>Fecha de pago</label><input id="date" type="date">
+<div class="actions"><button class="primary" onclick="savePlayer()">Guardar</button><button onclick="hideForm()">Cancelar</button></div>
+</section>
+
+<section class="card">
+<h2>👥 Jugadores</h2>
+<input class="search" id="search" oninput="render()" placeholder="🔎 Buscar jugador...">
+<div id="list"></div>
+</section>
+<footer>Marea Roja Cuotas · Versión 2 — guardado corregido</footer>
+</main>
+<script>
+const KEY='marea_roja_cuotas_v2';
+const DB_NAME='MareaRojaCuotasDB';
+const DB_STORE='datos';
+let players=[], editId=null;
+const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function openDB(){
+ return new Promise((resolve,reject)=>{
+  const req=indexedDB.open(DB_NAME,1);
+  req.onupgradeneeded=()=>req.result.createObjectStore(DB_STORE);
+  req.onsuccess=()=>resolve(req.result);
+  req.onerror=()=>reject(req.error);
+ });
+}
+async function loadPlayers(){
+ try{
+  const saved=localStorage.getItem(KEY);
+  if(saved){ players=JSON.parse(saved)||[]; return; }
+ }catch(e){}
+ try{
+  const db=await openDB();
+  players=await new Promise((resolve,reject)=>{
+   const r=db.transaction(DB_STORE,'readonly').objectStore(DB_STORE).get('players');
+   r.onsuccess=()=>resolve(r.result||[]);
+   r.onerror=()=>reject(r.error);
+  });
+  localStorage.setItem(KEY,JSON.stringify(players));
+ }catch(e){ players=[]; }
+}
+async function persist(){
+ try{ localStorage.setItem(KEY,JSON.stringify(players)); }catch(e){}
+ try{
+  const db=await openDB();
+  await new Promise((resolve,reject)=>{
+   const r=db.transaction(DB_STORE,'readwrite').objectStore(DB_STORE).put(players,'players');
+   r.onsuccess=resolve; r.onerror=()=>reject(r.error);
+  });
+ }catch(e){}
+ render();
+}
+month.innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+date.value=new Date().toISOString().slice(0,10);
+
+function persist(){localStorage.setItem(KEY,JSON.stringify(players));render()}
+function showForm(id=null){
+ editId=id; formCard.classList.remove('hidden');
+ if(id){let p=players.find(x=>x.id===id);formTitle.textContent='Editar jugador';name.value=p.name;cat.value=p.cat;month.value=p.month;amount.value=p.amount;status.value=p.status;method.value=p.method;date.value=p.date||''}
+ else {formTitle.textContent='Nuevo jugador';name.value='';cat.value='';amount.value='';status.value='debe';method.value='Efectivo';date.value=new Date().toISOString().slice(0,10)}
+ window.scrollTo({top:formCard.offsetTop-10,behavior:'smooth'})
+}
+function hideForm(){formCard.classList.add('hidden');editId=null}
+async function savePlayer(){
+ if(!name.value.trim()){alert('Escribí el nombre y apellido.');return}
+ const obj={id:editId||Date.now(),name:name.value.trim(),cat:cat.value.trim(),month:month.value,amount:Number(amount.value)||0,status:status.value,method:method.value,date:date.value};
+ if(editId) players=players.map(p=>p.id===editId?obj:p); else players.push(obj);
+ await persist();
+ hideForm();
+ alert('Jugador guardado correctamente.');
+}
+async function del(id){if(confirm('¿Eliminar este jugador?')){players=players.filter(p=>p.id!==id);await persist()}}
+async function toggle(id){let p=players.find(x=>x.id===id);if(!p)return;p.status=p.status==='pago'?'debe':'pago';if(p.status==='pago'&&!p.date)p.date=new Date().toISOString().slice(0,10);await persist()}
+function render(){
+ const q=search.value.toLowerCase();let arr=players.filter(p=>(p.name+' '+p.cat).toLowerCase().includes(q));
+ list.innerHTML=arr.length?arr.map(p=>`<div class="player">
+ <h3>${esc(p.name)}</h3><div>${esc(p.cat||'Sin categoría')} · ${esc(p.month)}</div>
+ <p><b>$${Number(p.amount).toLocaleString('es-AR')}</b> · <span class="badge ${p.status==='pago'?'paid':'debt'}">${p.status==='pago'?'PAGÓ':'DEBE'}</span></p>
+ ${p.status==='pago'?`<small>${p.method} · ${p.date||''}</small>`:''}
+ <div class="actions" style="margin-top:10px"><button class="primary" onclick="toggle(${p.id})">${p.status==='pago'?'Marcar como debe':'Marcar pagó'}</button><button onclick="showForm(${p.id})">Editar</button><button class="danger" onclick="del(${p.id})">Eliminar</button></div>
+ </div>`).join(''):'<p style="color:#777">Todavía no hay jugadores cargados.</p>';
+ total.textContent=players.length;paid.textContent=players.filter(p=>p.status==='pago').length;debt.textContent=players.filter(p=>p.status==='debe').length;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function exportData(){
+ const blob=new Blob([JSON.stringify(players,null,2)],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='marea-roja-cuotas-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js?v=2').catch(()=>{});
+loadPlayers().then(render);
+</script>
+</body></html>
