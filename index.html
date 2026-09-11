@@ -24,7 +24,12 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 </style>
 </head>
 <body>
-<header><h1>🔴 MAREA ROJA F.C.</h1><p>Control de cuotas</p></header>
+<header>
+<div style="display:flex;align-items:center;gap:12px">
+<img src="escudo-marea-roja.png" alt="Escudo Marea Roja" style="width:58px;height:58px;object-fit:cover;border-radius:14px;background:#fff">
+<div><h1>MAREA ROJA F.C.</h1><p>Control de cuotas</p></div>
+</div>
+</header>
 <main>
 <section class="stats">
 <div class="stat"><b id="total">0</b><small>Jugadores</small></div>
@@ -58,7 +63,7 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 <input class="search" id="search" oninput="render()" placeholder="🔎 Buscar jugador...">
 <div id="list"></div>
 </section>
-<footer>Marea Roja Cuotas · Versión 3 — guardado corregido</footer>
+<footer>Marea Roja Cuotas · Versión 4 — escudo Marea Roja</footer>
 </main>
 <script>
 const KEY='marea_roja_cuotas_v2';
