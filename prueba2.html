@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#c90022">
+<link rel="manifest" href="manifest.json">
+<title>Marea Roja Cuotas</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
+header{background:linear-gradient(135deg,#c90022,#8f0018);color:white;padding:22px 18px 26px;border-radius:0 0 24px 24px}
+header h1{margin:0;font-size:28px}header p{margin:5px 0 0;opacity:.9}
+main{max-width:760px;margin:auto;padding:16px}
+.card{background:white;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 4px 15px #00000010}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{background:#fff;padding:14px;border-radius:15px;text-align:center}.stat b{display:block;font-size:22px}.stat small{color:#666}
+button{border:0;border-radius:12px;padding:12px 15px;font-weight:bold;cursor:pointer}
+.primary{background:#c90022;color:white}.blue{background:#123c78;color:white}.danger{background:#eee;color:#a00018}
+input,select{width:100%;padding:12px;border:1px solid #ddd;border-radius:11px;margin-top:6px;margin-bottom:10px;font-size:16px}
+label{font-size:13px;font-weight:bold;color:#444}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.player{border:1px solid #eee;border-radius:15px;padding:14px;margin-top:10px}
+.player h3{margin:0 0 5px}.badge{display:inline-block;padding:5px 9px;border-radius:99px;font-size:12px;font-weight:bold}.paid{background:#d9f7e4;color:#087a36}.debt{background:#ffe0e5;color:#a00018}
+.hidden{display:none}.search{margin-bottom:8px}
+footer{text-align:center;color:#777;font-size:12px;padding:15px}
+</style>
+</head>
+<body>
+<header>
+<div style="display:flex;align-items:center;gap:12px">
+<img src="escudo-marea-roja.png" alt="Escudo Marea Roja" style="width:58px;height:58px;object-fit:cover;border-radius:14px;background:#fff">
+<div><h1>MAREA ROJA F.C.</h1><p>Control de cuotas</p></div>
+</div>
+</header>
+<main>
+<section class="stats">
+<div class="stat"><b id="total">0</b><small>Jugadores</small></div>
+<div class="stat"><b id="paid">0</b><small>Pagaron</small></div>
+<div class="stat"><b id="debt">0</b><small>Deben</small></div>
+</section>
+
+<section class="card">
+<div class="actions">
+<button class="primary" onclick="showForm()">➕ Agregar jugador</button>
+<button class="blue" onclick="exportData()">💾 Copia de seguridad</button>
+</div>
+</section>
+<section class="card">
+<h2>📊 Historial y estadísticas</h2>
+<label>Consultar mes</label>
+<select id="historyMonth" onchange="renderHistory()"></select>
+<div id="historyStats" style="margin-top:10px"></div>
+<div id="historyList" style="margin-top:10px"></div>
+</section>
+
+<section id="formCard" class="card hidden">
+<h2 id="formTitle">Nuevo jugador</h2>
+<div class="grid">
+<div><label>Nombre y apellido</label><input id="name" placeholder="Ej.: Juan Pérez"></div>
+<div><label>Categoría</label><input id="cat" placeholder="Ej.: 2014/2015"></div>
+</div>
+<label>Mes</label><select id="month"></select>
+<label>Monto de cuota</label><input id="amount" type="number" inputmode="numeric" placeholder="Ej.: 10000">
+<label>Estado</label><select id="status"><option value="debe">🔴 Debe</option><option value="pago">🟢 Pagó</option></select>
+<label>Medio de pago</label><select id="method"><option>Efectivo</option><option>Transferencia</option></select>
+<label>Fecha de pago</label><input id="date" type="date">
+<div class="actions"><button class="primary" onclick="savePlayer()">Guardar</button><button onclick="hideForm()">Cancelar</button></div>
+</section>
+
+<section class="card">
+<h2>👥 Jugadores</h2>
+<input class="search" id="search" oninput="render()" placeholder="🔎 Buscar jugador...">
+<div id="list"></div>
+</section>
+<footer>Marea Roja Cuotas · Versión 4 — escudo Marea Roja</footer>
+</main>
+<script>
+const KEY='marea_roja_cuotas_v2';
+const OLD_KEY='marea_roja_cuotas_v1';
+const $=id=>document.getElementById(id);
+const totalEl=$('total'),paidEl=$('paid'),debtEl=$('debt');
+const formCardEl=$('formCard'),formTitleEl=$('formTitle');
+const nameEl=$('name'),catEl=$('cat'),monthEl=$('month'),amountEl=$('amount');
+const statusEl=$('status'),methodEl=$('method'),dateEl=$('date');
+const searchEl=$('search'),listEl=$('list');
+let players=[],editId=null;
+const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function loadPlayers(){
+ try{
+  let x=localStorage.getItem(KEY);
+  if(x!==null){players=JSON.parse(x)||[];return;}
+  x=localStorage.getItem(OLD_KEY);
+  if(x!==null){players=JSON.parse(x)||[];localStorage.setItem(KEY,JSON.stringify(players));return;}
+ }catch(e){}
+ players=[];
+}
+function persist(){
+ try{localStorage.setItem(KEY,JSON.stringify(players));render();renderHistory();return true;}
+ catch(e){alert('No se pudo guardar en este navegador.');return false;}
+}
+function showForm(id=null){
+ editId=id;formCardEl.classList.remove('hidden');
+ if(id!==null){
+  const p=players.find(x=>x.id===id);if(!p)return;
+  formTitleEl.textContent='Editar jugador';nameEl.value=p.name||'';catEl.value=p.cat||'';
+  monthEl.value=p.month||months[new Date().getMonth()];amountEl.value=p.amount||'';
+  statusEl.value=p.status||'debe';methodEl.value=p.method||'Efectivo';dateEl.value=p.date||'';
+ }else{
+  formTitleEl.textContent='Nuevo jugador';nameEl.value='';catEl.value='';
+  monthEl.value=months[new Date().getMonth()];amountEl.value='';statusEl.value='debe';
+  methodEl.value='Efectivo';dateEl.value=new Date().toISOString().slice(0,10);
+ }
+ window.scrollTo({top:formCardEl.offsetTop-10,behavior:'smooth'});
+}
+function hideForm(){formCardEl.classList.add('hidden');editId=null;}
+function savePlayer(){
+ const playerName=nameEl.value.trim();
+ if(!playerName){alert('Escribí el nombre y apellido.');nameEl.focus();return;}
+ const obj={id:editId!==null?editId:Date.now(),name:playerName,cat:catEl.value.trim(),
+  month:monthEl.value,amount:Number(amountEl.value)||0,status:statusEl.value,
+  method:methodEl.value,date:dateEl.value};
+ if(editId!==null)players=players.map(p=>p.id===editId?obj:p);else players.push(obj);
+ if(persist()){hideForm();alert('Jugador guardado correctamente.');}
+}
+function del(id){if(confirm('¿Eliminar este jugador?')){players=players.filter(p=>p.id!==id);persist();}}
+function toggle(id){
+ const p=players.find(x=>x.id===id);if(!p)return;
+ p.status=p.status==='pago'?'debe':'pago';
+ if(p.status==='pago'&&!p.date)p.date=new Date().toISOString().slice(0,10);
+ persist();
+}
+function render(){
+ const q=searchEl.value.toLowerCase().trim();
+ const arr=players.filter(p=>(p.name+' '+(p.cat||'')).toLowerCase().includes(q));
+ listEl.innerHTML=arr.length?arr.map(p=>`<div class="player">
+ <h3>${esc(p.name)}</h3><div>${esc(p.cat||'Sin categoría')} · ${esc(p.month||'')}</div>
+ <p><b>$${Number(p.amount||0).toLocaleString('es-AR')}</b> · <span class="badge ${p.status==='pago'?'paid':'debt'}">${p.status==='pago'?'PAGÓ':'DEBE'}</span></p>
+ ${p.status==='pago'?`<small>${esc(p.method||'')} · ${esc(p.date||'')}</small>`:''}
+ <div class="actions" style="margin-top:10px"><button class="primary" onclick="toggle(${p.id})">${p.status==='pago'?'Marcar como debe':'Marcar pagó'}</button>
+ <button onclick="showForm(${p.id})">Editar</button><button class="danger" onclick="del(${p.id})">Eliminar</button></div></div>`).join('')
+ :' <p style="color:#777">Todavía no hay jugadores cargados.</p>';
+ totalEl.textContent=players.length;paidEl.textContent=players.filter(p=>p.status==='pago').length;
+ debtEl.textContent=players.filter(p=>p.status==='debe').length;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+
+function renderHistory(){
+  const m=$('historyMonth').value;
+  const arr=players.filter(p=>(p.month||'')===m);
+  const paid=arr.filter(p=>p.status==='pago');
+  const debt=arr.filter(p=>p.status==='debe');
+  const total=paid.reduce((s,p)=>s+Number(p.amount||0),0);
+  $('historyStats').innerHTML=`
+    <div class="stats">
+      <div class="stat"><b>${arr.length}</b><small>Jugadores</small></div>
+      <div class="stat"><b>${paid.length}</b><small>Pagaron</small></div>
+      <div class="stat"><b>${debt.length}</b><small>Deben</small></div>
+    </div>
+    <div class="card" style="margin-top:10px;padding:12px">
+      <b>💰 Total cobrado: $${total.toLocaleString('es-AR')}</b>
+    </div>`;
+  $('historyList').innerHTML=arr.length
+    ? arr.map(p=>`<div class="player">
+        <h3>${esc(p.name)}</h3>
+        <div>${esc(p.cat||'Sin categoría')}</div>
+        <p><b>$${Number(p.amount||0).toLocaleString('es-AR')}</b> ·
+        <span class="badge ${p.status==='pago'?'paid':'debt'}">${p.status==='pago'?'PAGÓ':'DEBE'}</span></p>
+        ${p.status==='pago'?`<small>${esc(p.method||'')} · ${esc(p.date||'')}</small>`:''}
+      </div>`).join('')
+    : '<p style="color:#777">No hay registros para este mes.</p>';
+}
+
+function exportData(){
+ const blob=new Blob([JSON.stringify(players,null,2)],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='marea-roja-cuotas-backup.json';a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+monthEl.innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+$('historyMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+loadPlayers();monthEl.value=months[new Date().getMonth()];$('historyMonth').value=months[new Date().getMonth()];dateEl.value=new Date().toISOString().slice(0,10);
+searchEl.addEventListener('input',render);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=3').catch(()=>{});
+render();
+</script>
+</body></html>
