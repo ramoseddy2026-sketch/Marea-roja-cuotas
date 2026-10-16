@@ -26,7 +26,7 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 <body>
 <header>
 <div style="display:flex;align-items:center;gap:12px">
-<img src="escudo-marea-roja.png" alt="Escudo Marea Roja" style="width:58px;height:58px;object-fit:cover;border-radius:14px;background:#fff">
+<img src="escudo-marea-roja.svg" alt="Escudo Marea Roja" style="width:58px;height:58px;object-fit:cover;border-radius:14px;background:#fff">
 <div><h1>MAREA ROJA F.C.</h1><p>Control de cuotas</p></div>
 </div>
 </header>
@@ -66,7 +66,7 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 <select id="historyMonth" onchange="renderHistory()"></select>
 <div class="actions" style="margin-top:10px">
 <button class="primary" onclick="shareMonthlySummary()">📲 Compartir resumen por WhatsApp</button>
-<button class="blue" onclick="exportMonthlyCSV()">📊 Descargar planilla Excel</button>
+<button class="blue" onclick="exportMonthlyCSV()">📊 Descargar planilla Excel (CSV)</button>
 </div>
 <div id="historyStats" style="margin-top:10px"></div>
 <div id="historyList" style="margin-top:10px"></div>
@@ -93,7 +93,7 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 <input class="search" id="search" oninput="render()" placeholder="🔎 Buscar jugador...">
 <div id="list"></div>
 </section>
-<footer>Marea Roja Cuotas · Versión 9 — recibo en imagen, Excel ordenado, WhatsApp y copias de seguridad</footer>
+<footer>Marea Roja F.C. · Versión 13 — jugadores, cuotas por mes, historial, WhatsApp, recibos y copias de seguridad</footer>
 </main>
 <script>
 const KEY='marea_roja_cuotas_v2';
@@ -219,11 +219,14 @@ function shareMonthlySummary(){
 function exportMonthlyCSV(){
  const m=$('historyMonth').value;
  const arr=monthlyRows();
- // CSV real con comas y campos entre comillas para que Excel separe las columnas.
- const headers=['Mes','Jugador','Categoría','WhatsApp responsable','Importe','Estado','Medio de pago','Fecha'];
- const csvCell=v=> '"'+String(v??'').replace(/"/g,'""')+'"';
- const rows=[headers,...arr.map(p=>[m,p.name,p.cat||'',p.phone||'',Number(p.amount||0),p.status==='pago'?'Pagó':'Debe',p.method||'',p.date||''])];
- const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+ // CSV compatible con Excel configurado en español: columnas separadas por punto y coma.
+ const csvCell=v=>{
+   const value=String(v??'').replace(/\r?\n/g,' ').trim();
+   return '"'+value.replace(/"/g,'""')+'"';
+ };
+ const rows=[['Mes','Jugador','Categoría','WhatsApp responsable','Importe','Estado','Medio de pago','Fecha']];
+ arr.forEach(p=>rows.push([m,p.name,p.cat||'',p.phone||'',Number(p.amount||0),p.status==='pago'?'Pagó':'Debe',p.method||'',p.date||'']));
+ const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download='Marea_Roja_Cuotas_'+m+'.csv';a.style.display='none';
@@ -263,7 +266,7 @@ async function shareReceiptImage(id){
  // Cargar el escudo original del club desde el mismo sitio publicado.
  try{
    const logo=new Image(); logo.crossOrigin='anonymous';
-   await new Promise((resolve,reject)=>{logo.onload=resolve;logo.onerror=reject;logo.src='escudo-marea-roja.png';});
+   await new Promise((resolve,reject)=>{logo.onload=resolve;logo.onerror=reject;logo.src='escudo-marea-roja.svg';});
    ctx.drawImage(logo,430,225,140,140);
  }catch(e){
    ctx.fillStyle='#c90022';ctx.beginPath();ctx.arc(500,295,66,0,Math.PI*2);ctx.fill();
@@ -319,7 +322,7 @@ function printReceipt(id){
 }
 
 function exportData(){
- const backup={app:'MAREA ROJA F.C. – Cuotas',version:6,exportedAt:new Date().toISOString(),players};
+ const backup={app:'MAREA ROJA F.C. – Cuotas',version:13,exportedAt:new Date().toISOString(),players};
  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),a=document.createElement('a');
  a.href=URL.createObjectURL(blob);a.download='marea-roja-cuotas-backup.json';a.click();
  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -380,7 +383,7 @@ $('historyMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
 $('reminderMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
 loadPlayers();monthEl.value=months[new Date().getMonth()];$('historyMonth').value=months[new Date().getMonth()];$('reminderMonth').value=months[new Date().getMonth()];dateEl.value=new Date().toISOString().slice(0,10);
 searchEl.addEventListener('input',render);
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=3').catch(()=>{});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=13').catch(()=>{});
 render();
 </script>
 </body></html>

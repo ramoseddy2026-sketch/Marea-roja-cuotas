@@ -1,20 +1,11 @@
 {
-  "name": "Marea Roja Cuotas",
+  "name": "MAREA ROJA F.C. - Cuotas",
   "short_name": "Marea Roja",
+  "description": "Control de jugadores, cuotas mensuales y pagos de MAREA ROJA F.C.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#c90022",
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+  "icons": []
 }
