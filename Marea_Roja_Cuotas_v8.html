@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#c90022">
+<link rel="manifest" href="manifest.json">
+<title>Marea Roja Cuotas</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
+header{background:linear-gradient(135deg,#c90022,#8f0018);color:white;padding:22px 18px 26px;border-radius:0 0 24px 24px}
+header h1{margin:0;font-size:28px}header p{margin:5px 0 0;opacity:.9}
+main{max-width:760px;margin:auto;padding:16px}
+.card{background:white;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 4px 15px #00000010}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{background:#fff;padding:14px;border-radius:15px;text-align:center}.stat b{display:block;font-size:22px}.stat small{color:#666}
+button{border:0;border-radius:12px;padding:12px 15px;font-weight:bold;cursor:pointer}
+.primary{background:#c90022;color:white}.blue{background:#123c78;color:white}.danger{background:#eee;color:#a00018}
+input,select{width:100%;padding:12px;border:1px solid #ddd;border-radius:11px;margin-top:6px;margin-bottom:10px;font-size:16px}
+label{font-size:13px;font-weight:bold;color:#444}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.player{border:1px solid #eee;border-radius:15px;padding:14px;margin-top:10px}
+.player h3{margin:0 0 5px}.badge{display:inline-block;padding:5px 9px;border-radius:99px;font-size:12px;font-weight:bold}.paid{background:#d9f7e4;color:#087a36}.debt{background:#ffe0e5;color:#a00018}
+.hidden{display:none}.search{margin-bottom:8px}
+footer{text-align:center;color:#777;font-size:12px;padding:15px}
+</style>
+</head>
+<body>
+<header>
+<div style="display:flex;align-items:center;gap:12px">
+<img src="escudo-marea-roja.png" alt="Escudo Marea Roja" style="width:58px;height:58px;object-fit:cover;border-radius:14px;background:#fff">
+<div><h1>MAREA ROJA F.C.</h1><p>Control de cuotas</p></div>
+</div>
+</header>
+<main>
+<section class="stats">
+<div class="stat"><b id="total">0</b><small>Jugadores</small></div>
+<div class="stat"><b id="paid">0</b><small>Pagaron</small></div>
+<div class="stat"><b id="debt">0</b><small>Deben</small></div>
+</section>
+
+<section class="card">
+<div class="actions">
+<button class="primary" onclick="showForm()">➕ Agregar jugador</button>
+<button class="blue" onclick="exportData()">💾 Copia de seguridad</button>
+<button onclick="document.getElementById('importFile').click()">📥 Recuperar copia</button>
+<input id="importFile" type="file" accept=".json,application/json" class="hidden" onchange="importData(event)">
+</div>
+<p style="font-size:13px;color:#666;margin-bottom:0">Antes de actualizar o cambiar de teléfono, guardá una copia de seguridad.</p>
+</section>
+<section class="card">
+<h2>📲 Recordatorios por WhatsApp</h2>
+<p>Prepará un aviso general para el grupo de familias o recordatorios individuales para quienes todavía deben la cuota del mes seleccionado.</p>
+<label>Mes del recordatorio</label>
+<select id="reminderMonth"></select>
+<label>Importe de la cuota (para el mensaje general)</label>
+<input id="generalAmount" type="number" inputmode="numeric" placeholder="Ej.: 10000">
+<div class="actions">
+<button class="primary" onclick="sendGroupMessage()">📣 Aviso general por WhatsApp</button>
+<button class="blue" onclick="prepareDebtorMessages()">👥 Ver deudores y recordar</button>
+</div>
+<div id="bulkReminders" style="margin-top:12px"></div>
+<p style="font-size:12px;color:#666">WhatsApp se abre para que revises y confirmes cada envío. Para el grupo, elegí el grupo de padres desde WhatsApp cuando se abra el mensaje.</p>
+</section>
+<section class="card">
+<h2>📊 Historial y estadísticas</h2>
+<label>Consultar mes</label>
+<select id="historyMonth" onchange="renderHistory()"></select>
+<div class="actions" style="margin-top:10px">
+<button class="primary" onclick="shareMonthlySummary()">📲 Compartir resumen por WhatsApp</button>
+<button class="blue" onclick="exportMonthlyCSV()">📊 Descargar planilla Excel (CSV)</button>
+</div>
+<div id="historyStats" style="margin-top:10px"></div>
+<div id="historyList" style="margin-top:10px"></div>
+</section>
+
+<section id="formCard" class="card hidden">
+<h2 id="formTitle">Nuevo jugador</h2>
+<div class="grid">
+<div><label>Nombre y apellido</label><input id="name" placeholder="Ej.: Juan Pérez"></div>
+<div><label>Categoría</label><input id="cat" placeholder="Ej.: 2014/2015"></div>
+</div>
+<label>WhatsApp del padre, madre o responsable</label><input id="phone" type="tel" inputmode="tel" placeholder="Ej.: 54911XXXXXXXX" autocomplete="tel">
+<p style="font-size:12px;color:#666;margin-top:-5px">Ingresá el número con código de país y área, sin +, espacios ni guiones. Ejemplo de Argentina: 54911...</p>
+<label>Mes</label><select id="month"></select>
+<label>Monto de cuota</label><input id="amount" type="number" inputmode="numeric" placeholder="Ej.: 10000">
+<label>Estado</label><select id="status"><option value="debe">🔴 Debe</option><option value="pago">🟢 Pagó</option></select>
+<label>Medio de pago</label><select id="method"><option>Efectivo</option><option>Transferencia</option></select>
+<label>Fecha de pago</label><input id="date" type="date">
+<div class="actions"><button class="primary" onclick="savePlayer()">Guardar</button><button onclick="hideForm()">Cancelar</button></div>
+</section>
+
+<section class="card">
+<h2>👥 Jugadores</h2>
+<input class="search" id="search" oninput="render()" placeholder="🔎 Buscar jugador...">
+<div id="list"></div>
+</section>
+<footer>Marea Roja Cuotas · Versión 8 — recibo formal en imagen, WhatsApp, resumen mensual, planilla y copias de seguridad</footer>
+</main>
+<script>
+const KEY='marea_roja_cuotas_v2';
+const OLD_KEY='marea_roja_cuotas_v1';
+const $=id=>document.getElementById(id);
+const totalEl=$('total'),paidEl=$('paid'),debtEl=$('debt');
+const formCardEl=$('formCard'),formTitleEl=$('formTitle');
+const nameEl=$('name'),catEl=$('cat'),phoneEl=$('phone'),monthEl=$('month'),amountEl=$('amount');
+const statusEl=$('status'),methodEl=$('method'),dateEl=$('date');
+const searchEl=$('search'),listEl=$('list');
+let players=[],editId=null;
+const months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function loadPlayers(){
+ try{
+  let x=localStorage.getItem(KEY);
+  if(x!==null){players=JSON.parse(x)||[];return;}
+  x=localStorage.getItem(OLD_KEY);
+  if(x!==null){players=JSON.parse(x)||[];localStorage.setItem(KEY,JSON.stringify(players));return;}
+ }catch(e){}
+ players=[];
+}
+function persist(){
+ try{localStorage.setItem(KEY,JSON.stringify(players));render();renderHistory();return true;}
+ catch(e){alert('No se pudo guardar en este navegador.');return false;}
+}
+function showForm(id=null){
+ editId=id;formCardEl.classList.remove('hidden');
+ if(id!==null){
+  const p=players.find(x=>x.id===id);if(!p)return;
+  formTitleEl.textContent='Editar jugador';nameEl.value=p.name||'';catEl.value=p.cat||'';phoneEl.value=p.phone||'';
+  monthEl.value=p.month||months[new Date().getMonth()];amountEl.value=p.amount||'';
+  statusEl.value=p.status||'debe';methodEl.value=p.method||'Efectivo';dateEl.value=p.date||'';
+ }else{
+  formTitleEl.textContent='Nuevo jugador';nameEl.value='';catEl.value='';phoneEl.value='';
+  monthEl.value=months[new Date().getMonth()];amountEl.value='';statusEl.value='debe';
+  methodEl.value='Efectivo';dateEl.value=new Date().toISOString().slice(0,10);
+ }
+ window.scrollTo({top:formCardEl.offsetTop-10,behavior:'smooth'});
+}
+function hideForm(){formCardEl.classList.add('hidden');editId=null;}
+function savePlayer(){
+ const playerName=nameEl.value.trim();
+ if(!playerName){alert('Escribí el nombre y apellido.');nameEl.focus();return;}
+ const obj={id:editId!==null?editId:Date.now(),name:playerName,cat:catEl.value.trim(),phone:phoneEl.value.trim(),
+  month:monthEl.value,amount:Number(amountEl.value)||0,status:statusEl.value,
+  method:methodEl.value,date:dateEl.value};
+ if(editId!==null)players=players.map(p=>p.id===editId?obj:p);else players.push(obj);
+ if(persist()){hideForm();alert('Jugador guardado correctamente.');}
+}
+function del(id){if(confirm('¿Eliminar este jugador?')){players=players.filter(p=>p.id!==id);persist();}}
+function toggle(id){
+ const p=players.find(x=>x.id===id);if(!p)return;
+ p.status=p.status==='pago'?'debe':'pago';
+ if(p.status==='pago'&&!p.date)p.date=new Date().toISOString().slice(0,10);
+ persist();
+}
+function render(){
+ const q=searchEl.value.toLowerCase().trim();
+ const arr=players.filter(p=>(p.name+' '+(p.cat||'')).toLowerCase().includes(q));
+ listEl.innerHTML=arr.length?arr.map(p=>`<div class="player">
+ <h3>${esc(p.name)}</h3><div>${esc(p.cat||'Sin categoría')} · ${esc(p.month||'')}</div>
+ <p><b>$${Number(p.amount||0).toLocaleString('es-AR')}</b> · <span class="badge ${p.status==='pago'?'paid':'debt'}">${p.status==='pago'?'PAGÓ':'DEBE'}</span></p>
+ ${p.status==='pago'?`<small>${esc(p.method||'')} · ${esc(p.date||'')}</small>`:''}
+ <div class="actions" style="margin-top:10px"><button class="primary" onclick="toggle(${p.id})">${p.status==='pago'?'Marcar como debe':'Marcar pagó'}</button>
+ <button onclick="sendWhatsApp(${p.id},'recordatorio')">📲 Recordatorio</button><button onclick="sendWhatsApp(${p.id},'boleta')">🧾 Boleta por WhatsApp</button><button onclick="shareReceiptImage(${p.id})">🖼️ Recibo formal en imagen</button><button onclick="printReceipt(${p.id})">🖨️ Ver/imprimir boleta</button>
+ <button onclick="showForm(${p.id})">Editar</button><button class="danger" onclick="del(${p.id})">Eliminar</button></div></div>`).join('')
+ :' <p style="color:#777">Todavía no hay jugadores cargados.</p>';
+ totalEl.textContent=players.length;paidEl.textContent=players.filter(p=>p.status==='pago').length;
+ debtEl.textContent=players.filter(p=>p.status==='debe').length;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+
+function renderHistory(){
+  const m=$('historyMonth').value;
+  const arr=players.filter(p=>(p.month||'')===m);
+  const paid=arr.filter(p=>p.status==='pago');
+  const debt=arr.filter(p=>p.status==='debe');
+  const total=paid.reduce((s,p)=>s+Number(p.amount||0),0);
+  const pending=debt.reduce((s,p)=>s+Number(p.amount||0),0);
+  $('historyStats').innerHTML=`
+    <div class="stats">
+      <div class="stat"><b>${arr.length}</b><small>Jugadores</small></div>
+      <div class="stat"><b>${paid.length}</b><small>Pagaron</small></div>
+      <div class="stat"><b>${debt.length}</b><small>Deben</small></div>
+    </div>
+    <div class="card" style="margin-top:10px;padding:12px">
+      <b>💰 Total cobrado: $${total.toLocaleString('es-AR')}</b><br>
+      <b style="color:#a00018">⏳ Total pendiente: $${pending.toLocaleString('es-AR')}</b>
+    </div>`;
+  $('historyList').innerHTML=arr.length
+    ? arr.map(p=>`<div class="player">
+        <h3>${esc(p.name)}</h3>
+        <div>${esc(p.cat||'Sin categoría')}</div>
+        <p><b>$${Number(p.amount||0).toLocaleString('es-AR')}</b> ·
+        <span class="badge ${p.status==='pago'?'paid':'debt'}">${p.status==='pago'?'PAGÓ':'DEBE'}</span></p>
+        ${p.status==='pago'?`<small>${esc(p.method||'')} · ${esc(p.date||'')}</small>`:''}
+      </div>`).join('')
+    : '<p style="color:#777">No hay registros para este mes.</p>';
+}
+
+
+
+function monthlyRows(){
+ const m=$('historyMonth').value;
+ return players.filter(p=>(p.month||'')===m);
+}
+function shareMonthlySummary(){
+ const m=$('historyMonth').value;
+ const arr=monthlyRows();
+ const paid=arr.filter(p=>p.status==='pago');
+ const debt=arr.filter(p=>p.status!=='pago');
+ const collected=paid.reduce((s,p)=>s+Number(p.amount||0),0);
+ const pending=debt.reduce((s,p)=>s+Number(p.amount||0),0);
+ let msg=`⚽ *MAREA ROJA F.C. — RESUMEN DE CUOTAS: ${m}*\\n\\n`;
+ msg+=`Jugadores registrados: ${arr.length}\\nCuotas pagadas: ${paid.length}\\nCuotas pendientes: ${debt.length}\\nTotal recaudado: ${money(collected)}\\nTotal pendiente: ${money(pending)}\\n`;
+ if(debt.length){
+   msg+='\\n*Cuotas pendientes:*\\n'+debt.map(p=>`• ${p.name} — ${money(p.amount)}`).join('\\n');
+ }
+ msg+='\\n\\nGracias a todas las familias por colaborar con el club. ⚽❤️';
+ window.location.href='https://wa.me/?text='+encodeURIComponent(msg);
+}
+function exportMonthlyCSV(){
+ const m=$('historyMonth').value;
+ const arr=monthlyRows();
+ const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+ const rows=[['Mes','Jugador','Categoría','WhatsApp responsable','Importe','Estado','Medio de pago','Fecha']];
+ arr.forEach(p=>rows.push([m,p.name,p.cat||'',p.phone||'',Number(p.amount||0),p.status==='pago'?'Pagó':'Debe',p.method||'',p.date||'']));
+ const csv='\\ufeff'+rows.map(row=>row.map(quote).join(';')).join('\\r\\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='Marea_Roja_Cuotas_'+m+'.csv';document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function money(n){return '$'+Number(n||0).toLocaleString('es-AR');}
+function playerById(id){return players.find(p=>p.id===id);}
+function sendWhatsApp(id,type){
+ const p=playerById(id);if(!p)return;
+ const phone=String(p.phone||'').replace(/\D/g,'');
+ if(!phone){alert('Primero cargá el WhatsApp del padre, madre o responsable en Editar jugador.');showForm(id);return;}
+ const month=p.month||months[new Date().getMonth()];
+ let msg;
+ if(type==='boleta'){
+  msg=`⚽ MAREA ROJA F.C.\nBOLETA DE CUOTA\nJugador/a: ${p.name}\nCategoría: ${p.cat||'Sin categoría'}\nMes: ${month}\nImporte: ${money(p.amount)}\nEstado: ${p.status==='pago'?'PAGADA':'PENDIENTE'}${p.status==='pago'?`\nMedio de pago: ${p.method||'No indicado'}\nFecha de pago: ${p.date||'No indicada'}`:''}\n\nMuchas gracias por acompañar a MAREA ROJA F.C. ⚽❤️`;
+ }else{
+  msg=`Hola, familia de ${p.name}. 👋\nLes recordamos que la cuota de ${month} de MAREA ROJA F.C. figura ${p.status==='pago'?'pagada':'pendiente'}.\nImporte: ${money(p.amount)}.\n${p.status==='pago'?'¡Muchas gracias por el pago y por colaborar con el club!':'Cuando realicen el pago, por favor avísennos para actualizar el registro.'}\n¡Muchas gracias! ⚽❤️`;
+ }
+ window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank','noopener');
+}
+
+async function shareReceiptImage(id){
+ const p=playerById(id); if(!p)return;
+ const paid=p.status==='pago';
+ const month=p.month||months[new Date().getMonth()];
+ const canvas=document.createElement('canvas');
+ canvas.width=1000; canvas.height=1250;
+ const ctx=canvas.getContext('2d');
+ ctx.fillStyle='#f5f5f5';ctx.fillRect(0,0,1000,1250);
+ ctx.fillStyle='#ffffff';ctx.fillRect(36,36,928,1178);
+ ctx.strokeStyle='#c90022';ctx.lineWidth=8;ctx.strokeRect(36,36,928,1178);
+ ctx.fillStyle='#c90022';ctx.fillRect(40,40,920,18);
+ ctx.textAlign='center';ctx.fillStyle='#c90022';ctx.font='bold 48px Arial';
+ ctx.fillText('MAREA ROJA F.C.',500,145);
+ ctx.fillStyle='#555';ctx.font='30px Arial';ctx.fillText('COMPROBANTE DE CUOTA MENSUAL',500,198);
+ // Cargar el escudo original del club desde el mismo sitio publicado.
+ try{
+   const logo=new Image(); logo.crossOrigin='anonymous';
+   await new Promise((resolve,reject)=>{logo.onload=resolve;logo.onerror=reject;logo.src='escudo-marea-roja.png';});
+   ctx.drawImage(logo,430,225,140,140);
+ }catch(e){
+   ctx.fillStyle='#c90022';ctx.beginPath();ctx.arc(500,295,66,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle='#fff';ctx.font='bold 56px Arial';ctx.fillText('MR',500,314);
+ }
+ let y=435;
+ const line=(label,value)=>{
+   ctx.textAlign='left';ctx.fillStyle='#555';ctx.font='bold 27px Arial';ctx.fillText(label,95,y);
+   ctx.fillStyle='#222';ctx.font='28px Arial';
+   const val=String(value||'—');
+   const max=630;
+   if(ctx.measureText(val).width<=max){ctx.fillText(val,340,y);}
+   else {let v=val;while(ctx.measureText(v).width>max&&v.length>4)v=v.slice(0,-1);ctx.fillText(v+'…',340,y);}
+   ctx.strokeStyle='#dddddd';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(95,y+22);ctx.lineTo(905,y+22);ctx.stroke();
+   y+=90;
+ };
+ line('Jugador/a:',p.name);
+ line('Categoría:',p.cat||'Sin categoría');
+ line('Período:',month);
+ line('Estado:',paid?'PAGADA':'PENDIENTE');
+ if(paid){line('Medio de pago:',p.method||'No indicado');line('Fecha de pago:',p.date||'No indicada');}
+ ctx.textAlign='center';ctx.fillStyle='#222';ctx.font='bold 34px Arial';ctx.fillText('IMPORTE: '+money(p.amount),500,y+5);
+ ctx.fillStyle='#666';ctx.font='25px Arial';ctx.fillText('Gracias por acompañar y colaborar con el club',500,1100);
+ ctx.fillStyle='#c90022';ctx.font='bold 25px Arial';ctx.fillText('MAREA ROJA F.C. · ⚽❤️',500,1150);
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+ if(!blob){alert('No se pudo crear la imagen del recibo. Probá con Ver/imprimir boleta.');return;}
+ const file=new File([blob],'Recibo_Marea_Roja_'+String(p.name||'jugador').replace(/[^a-z0-9_-]/gi,'_')+'.png',{type:'image/png'});
+ const msg='Comprobante de cuota de MAREA ROJA F.C. para '+p.name+' · '+month+'.';
+ try{
+   if(navigator.canShare && navigator.canShare({files:[file]})){
+     await navigator.share({files:[file],title:'Recibo MAREA ROJA F.C.',text:msg});
+   }else{
+     const url=URL.createObjectURL(blob),a=document.createElement('a');
+     a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+     setTimeout(()=>URL.revokeObjectURL(url),1500);
+     window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank','noopener');
+     alert('La imagen del recibo se descargó. En WhatsApp, adjuntá esa imagen desde Descargas o Galería.');
+   }
+ }catch(err){
+   if(err && err.name==='AbortError')return;
+   alert('No se pudo abrir el envío directo. Se intentará descargar el recibo para compartirlo manualmente.');
+   const url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download=file.name;document.body.appendChild(a);a.click();a.remove();
+   setTimeout(()=>URL.revokeObjectURL(url),1500);
+ }
+}
+
+function printReceipt(id){
+ const p=playerById(id);if(!p)return;
+ const paid=p.status==='pago';
+ const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Boleta Marea Roja</title><style>body{font-family:Arial,sans-serif;color:#222;max-width:650px;margin:30px auto;padding:24px;border:2px solid #c90022;border-radius:16px}h1{color:#c90022;margin-bottom:4px}.sub{color:#666}.line{padding:12px 0;border-bottom:1px solid #ddd}.total{font-size:24px;font-weight:bold;margin-top:20px}.status{font-weight:bold;color:${paid?'#087a36':'#a00018'}}button{padding:12px 18px;background:#c90022;color:#fff;border:0;border-radius:8px;font-weight:bold;margin-top:20px}@media print{button{display:none}body{margin:0;border:2px solid #c90022}}</style></head><body><h1>⚽ MAREA ROJA F.C.</h1><div class="sub">Boleta de cuota mensual</div><div class="line"><b>Jugador/a:</b> ${esc(p.name)}</div><div class="line"><b>Categoría:</b> ${esc(p.cat||'Sin categoría')}</div><div class="line"><b>Período:</b> ${esc(p.month||months[new Date().getMonth()])}</div><div class="line"><b>Estado:</b> <span class="status">${paid?'PAGADA':'PENDIENTE'}</span></div>${paid?`<div class="line"><b>Medio de pago:</b> ${esc(p.method||'No indicado')}</div><div class="line"><b>Fecha de pago:</b> ${esc(p.date||'No indicada')}</div>`:''}<div class="total">Importe: ${money(p.amount)}</div><p>Gracias por acompañar y colaborar con MAREA ROJA F.C. ⚽❤️</p><button onclick="window.print()">Imprimir / Guardar como PDF</button></body></html>`;
+ const w=window.open('','_blank');if(!w){alert('El navegador bloqueó la ventana. Permití las ventanas emergentes e intentá otra vez.');return;}w.document.open();w.document.write(html);w.document.close();
+}
+
+function exportData(){
+ const backup={app:'MAREA ROJA F.C. – Cuotas',version:6,exportedAt:new Date().toISOString(),players};
+ const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='marea-roja-cuotas-backup.json';a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function normalizeImported(data){
+ let source=Array.isArray(data)?data:(data&&Array.isArray(data.players)?data.players:null);
+ if(!source)throw new Error('El archivo no tiene el formato esperado.');
+ const out=[];
+ source.forEach((p,index)=>{
+   if(!p||typeof p!=='object')return;
+   const base={id:p.id??(Date.now()+index),name:String(p.name||p.nombre||'Jugador sin nombre'),
+     cat:String(p.cat||p.category||p.categoria||''),phone:String(p.phone||p.telefono||'')};
+   if(p.payments&&typeof p.payments==='object'){
+     Object.entries(p.payments).forEach(([month,pay],j)=>{
+       if(!pay||typeof pay!=='object')return;
+       out.push({...base,id:String(base.id)+'_'+month,month,amount:Number(pay.amount||0),
+         status:(pay.status==='pago'||pay.status==='pagado')?'pago':'debe',
+         method:String(pay.method||'Efectivo'),date:String(pay.date||'')});
+     });
+   }else{
+     out.push({...base,month:String(p.month||months[new Date().getMonth()]),
+       amount:Number(p.amount||0),status:(p.status==='pago'||p.status==='pagado')?'pago':'debe',
+       method:String(p.method||'Efectivo'),date:String(p.date||'')});
+   }
+ });
+ return out;
+}
+function importData(event){
+ const file=event.target.files&&event.target.files[0];if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const imported=normalizeImported(JSON.parse(reader.result));
+   if(!confirm('Se encontraron '+imported.length+' registros de cuotas. Esta acción reemplazará los datos que estén guardados en esta aplicación. Antes, descargá una copia de seguridad si tenés datos nuevos. ¿Querés continuar?')){event.target.value='';return;}
+   players=imported;
+   if(persist()){alert('Copia recuperada. Revisá los nombres, meses e importes antes de seguir.');}
+  }catch(e){alert('No se pudo importar la copia: '+e.message);}
+  event.target.value='';
+ };
+ reader.onerror=()=>alert('No se pudo leer el archivo.');
+ reader.readAsText(file);
+}
+function sendGroupMessage(){
+ const month=$('reminderMonth').value||months[new Date().getMonth()];
+ const amount=Number($('generalAmount').value)||0;
+ const msg=`⚽ *MAREA ROJA F.C. – CUOTA MENSUAL*\n\nHola, familias. Les recordamos que ya pueden abonar la cuota correspondiente a ${month}.${amount?`\nImporte: ${money(amount)}.`:''}\n\nCuando realicen el pago, por favor envíen el comprobante e indiquen el nombre del jugador o jugadora. Muchas gracias por colaborar con el club. ❤️⚽`;
+ window.location.href='https://wa.me/?text='+encodeURIComponent(msg);
+}
+function prepareDebtorMessages(){
+ const month=$('reminderMonth').value||months[new Date().getMonth()];
+ const debtors=players.filter(p=>p.month===month&&p.status!=='pago');
+ const box=$('bulkReminders');
+ if(!debtors.length){box.innerHTML='<p>¡No hay deudores registrados para '+esc(month)+'.</p>';return;}
+ box.innerHTML='<h3>Deudores de '+esc(month)+' ('+debtors.length+')</h3>'+debtors.map(p=>`<div class="player"><b>${esc(p.name)}</b> · ${money(p.amount)}<div style="margin-top:8px"><button class="primary" onclick="sendWhatsApp(${JSON.stringify(p.id)},'recordatorio')">📲 Preparar mensaje</button></div></div>`).join('');
+}
+monthEl.innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+$('historyMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+$('reminderMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
+loadPlayers();monthEl.value=months[new Date().getMonth()];$('historyMonth').value=months[new Date().getMonth()];$('reminderMonth').value=months[new Date().getMonth()];dateEl.value=new Date().toISOString().slice(0,10);
+searchEl.addEventListener('input',render);
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=3').catch(()=>{});
+render();
+</script>
+</body></html>
