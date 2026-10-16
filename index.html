@@ -66,7 +66,7 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 <select id="historyMonth" onchange="renderHistory()"></select>
 <div class="actions" style="margin-top:10px">
 <button class="primary" onclick="shareMonthlySummary()">📲 Compartir resumen por WhatsApp</button>
-<button class="blue" onclick="exportMonthlyCSV()">📊 Descargar planilla Excel (TSV)</button>
+<button class="blue" onclick="exportMonthlyCSV()">📊 Descargar planilla Excel</button>
 </div>
 <div id="historyStats" style="margin-top:10px"></div>
 <div id="historyList" style="margin-top:10px"></div>
@@ -219,17 +219,17 @@ function shareMonthlySummary(){
 function exportMonthlyCSV(){
  const m=$('historyMonth').value;
  const arr=monthlyRows();
- // TSV (columnas separadas por tabulaciones) para que Excel móvil las distribuya en columnas.
- const clean=v=>String(v??'').replace(/[\t\r\n]+/g,' ').trim();
- const rows=[['Mes','Jugador','Categoría','WhatsApp responsable','Importe','Estado','Medio de pago','Fecha']];
- arr.forEach(p=>rows.push([m,p.name,p.cat||'',p.phone||'',Number(p.amount||0),p.status==='pago'?'Pagó':'Debe',p.method||'',p.date||'']));
- const tsv='\ufeff'+rows.map(row=>row.map(clean).join('\t')).join('\r\n');
- const blob=new Blob([tsv],{type:'text/tab-separated-values;charset=utf-8;'});
+ // CSV real con comas y campos entre comillas para que Excel separe las columnas.
+ const headers=['Mes','Jugador','Categoría','WhatsApp responsable','Importe','Estado','Medio de pago','Fecha'];
+ const csvCell=v=> '"'+String(v??'').replace(/"/g,'""')+'"';
+ const rows=[headers,...arr.map(p=>[m,p.name,p.cat||'',p.phone||'',Number(p.amount||0),p.status==='pago'?'Pagó':'Debe',p.method||'',p.date||''])];
+ const csv='\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download='Marea_Roja_Cuotas_'+m+'.tsv';document.body.appendChild(a);a.click();a.remove();
- setTimeout(()=>URL.revokeObjectURL(url),1000);
+ a.href=url;a.download='Marea_Roja_Cuotas_'+m+'.csv';a.style.display='none';
+ document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
-
 function money(n){return '$'+Number(n||0).toLocaleString('es-AR');}
 function playerById(id){return players.find(p=>p.id===id);}
 function sendWhatsApp(id,type){
