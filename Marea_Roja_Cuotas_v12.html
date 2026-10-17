@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#c90022">
 <link rel="manifest" href="manifest.json">
-<title>Marea Roja Cuotas</title>
+<title>Marea Roja Cuotas · Versión 13 corregida</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
 header{background:linear-gradient(135deg,#c90022,#8f0018);color:white;padding:22px 18px 26px;border-radius:0 0 24px 24px}
@@ -32,7 +32,7 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 </header>
 <main>
 <section class="stats">
-<div class="stat"><b id="total">0</b><small>Jugadores</small></div>
+<div class="stat"><b id="total">0</b><small>Registros del mes</small></div>
 <div class="stat"><b id="paid">0</b><small>Pagaron</small></div>
 <div class="stat"><b id="debt">0</b><small>Deben</small></div>
 </section>
@@ -62,8 +62,8 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 </section>
 <section class="card">
 <h2>📊 Historial y estadísticas</h2>
-<label>Consultar mes</label>
-<select id="historyMonth" onchange="renderHistory()"></select>
+<label>Consultar mes (también actualiza las estadísticas principales)</label>
+<select id="historyMonth" onchange="render();renderHistory()"></select>
 <div class="actions" style="margin-top:10px">
 <button class="primary" onclick="shareMonthlySummary()">📲 Compartir resumen por WhatsApp</button>
 <button class="blue" onclick="exportMonthlyCSV()">📊 Descargar planilla Excel</button>
@@ -93,10 +93,10 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 <input class="search" id="search" oninput="render()" placeholder="🔎 Buscar jugador...">
 <div id="list"></div>
 </section>
-<footer>Marea Roja Cuotas · Versión 9 — recibo en imagen, Excel ordenado, WhatsApp y copias de seguridad</footer>
+<footer>Marea Roja Cuotas · Versión 13 corregida — estadísticas por mes, guardado y copias de seguridad</footer>
 </main>
 <script>
-const KEY='marea_roja_cuotas_v2';
+const KEY='marea_roja_cuotas_v2'; // Se conserva la clave para no perder los datos existentes
 const OLD_KEY='marea_roja_cuotas_v1';
 const $=id=>document.getElementById(id);
 const totalEl=$('total'),paidEl=$('paid'),debtEl=$('debt');
@@ -158,12 +158,15 @@ function render(){
  <h3>${esc(p.name)}</h3><div>${esc(p.cat||'Sin categoría')} · ${esc(p.month||'')}</div>
  <p><b>$${Number(p.amount||0).toLocaleString('es-AR')}</b> · <span class="badge ${p.status==='pago'?'paid':'debt'}">${p.status==='pago'?'PAGÓ':'DEBE'}</span></p>
  ${p.status==='pago'?`<small>${esc(p.method||'')} · ${esc(p.date||'')}</small>`:''}
- <div class="actions" style="margin-top:10px"><button class="primary" onclick="toggle(${p.id})">${p.status==='pago'?'Marcar como debe':'Marcar pagó'}</button>
- <button onclick="sendWhatsApp(${p.id},'recordatorio')">📲 Recordatorio</button><button onclick="sendWhatsApp(${p.id},'boleta')">🧾 Boleta por WhatsApp</button><button onclick="shareReceiptImage(${p.id})">🖼️ Recibo formal en imagen</button><button onclick="printReceipt(${p.id})">🖨️ Ver/imprimir boleta</button>
- <button onclick="showForm(${p.id})">Editar</button><button class="danger" onclick="del(${p.id})">Eliminar</button></div></div>`).join('')
+ <div class="actions" style="margin-top:10px"><button class="primary" onclick="toggle(${JSON.stringify(p.id)})">${p.status==='pago'?'Marcar como debe':'Marcar pagó'}</button>
+ <button onclick="sendWhatsApp(${JSON.stringify(p.id)},'recordatorio')">📲 Recordatorio</button><button onclick="sendWhatsApp(${JSON.stringify(p.id)},'boleta')">🧾 Boleta por WhatsApp</button><button onclick="shareReceiptImage(${JSON.stringify(p.id)})">🖼️ Recibo formal en imagen</button><button onclick="printReceipt(${JSON.stringify(p.id)})">🖨️ Ver/imprimir boleta</button>
+ <button onclick="showForm(${JSON.stringify(p.id)})">Editar</button><button class="danger" onclick="del(${JSON.stringify(p.id)})">Eliminar</button></div></div>`).join('')
  :' <p style="color:#777">Todavía no hay jugadores cargados.</p>';
- totalEl.textContent=players.length;paidEl.textContent=players.filter(p=>p.status==='pago').length;
- debtEl.textContent=players.filter(p=>p.status==='debe').length;
+ const selectedMonth=$('historyMonth').value || months[new Date().getMonth()];
+ const monthRows=players.filter(p=>(p.month||'')===selectedMonth);
+ totalEl.textContent=monthRows.length;
+ paidEl.textContent=monthRows.filter(p=>p.status==='pago').length;
+ debtEl.textContent=monthRows.filter(p=>p.status!=='pago').length;
 }
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
 
@@ -319,7 +322,7 @@ function printReceipt(id){
 }
 
 function exportData(){
- const backup={app:'MAREA ROJA F.C. – Cuotas',version:6,exportedAt:new Date().toISOString(),players};
+ const backup={app:'MAREA ROJA F.C. – Cuotas',version:13,exportedAt:new Date().toISOString(),players};
  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),a=document.createElement('a');
  a.href=URL.createObjectURL(blob);a.download='marea-roja-cuotas-backup.json';a.click();
  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -328,6 +331,7 @@ function normalizeImported(data){
  let source=Array.isArray(data)?data:(data&&Array.isArray(data.players)?data.players:null);
  if(!source)throw new Error('El archivo no tiene el formato esperado.');
  const out=[];
+ const seenIdMonths=new Set();
  source.forEach((p,index)=>{
    if(!p||typeof p!=='object')return;
    const base={id:p.id??(Date.now()+index),name:String(p.name||p.nombre||'Jugador sin nombre'),
@@ -335,12 +339,19 @@ function normalizeImported(data){
    if(p.payments&&typeof p.payments==='object'){
      Object.entries(p.payments).forEach(([month,pay],j)=>{
        if(!pay||typeof pay!=='object')return;
-       out.push({...base,id:String(base.id)+'_'+month,month,amount:Number(pay.amount||0),
+       const rowId=String(base.id)+'_'+month;
+       if(seenIdMonths.has(rowId))return;
+       seenIdMonths.add(rowId);
+       out.push({...base,id:rowId,month,amount:Number(pay.amount||0),
          status:(pay.status==='pago'||pay.status==='pagado')?'pago':'debe',
          method:String(pay.method||'Efectivo'),date:String(pay.date||'')});
      });
    }else{
-     out.push({...base,month:String(p.month||months[new Date().getMonth()]),
+     const month=String(p.month||months[new Date().getMonth()]);
+     const rowId=String(base.id)+'_'+month;
+     if(seenIdMonths.has(rowId))return;
+     seenIdMonths.add(rowId);
+     out.push({...base,id:rowId,month,
        amount:Number(p.amount||0),status:(p.status==='pago'||p.status==='pagado')?'pago':'debe',
        method:String(p.method||'Efectivo'),date:String(p.date||'')});
    }
@@ -380,7 +391,7 @@ $('historyMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
 $('reminderMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
 loadPlayers();monthEl.value=months[new Date().getMonth()];$('historyMonth').value=months[new Date().getMonth()];$('reminderMonth').value=months[new Date().getMonth()];dateEl.value=new Date().toISOString().slice(0,10);
 searchEl.addEventListener('input',render);
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=3').catch(()=>{});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=13').catch(()=>{});
 render();
 </script>
 </body></html>
