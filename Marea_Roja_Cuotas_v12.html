@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#c90022">
 <link rel="manifest" href="manifest.json">
-<title>Marea Roja Cuotas · Versión 13 corregida</title>
+<title>Marea Roja Cuotas · Versión 14 corregida</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f4f6;color:#171717}
 header{background:linear-gradient(135deg,#c90022,#8f0018);color:white;padding:22px 18px 26px;border-radius:0 0 24px 24px}
@@ -93,7 +93,7 @@ footer{text-align:center;color:#777;font-size:12px;padding:15px}
 <input class="search" id="search" oninput="render()" placeholder="🔎 Buscar jugador...">
 <div id="list"></div>
 </section>
-<footer>Marea Roja Cuotas · Versión 13 corregida — estadísticas por mes, guardado y copias de seguridad</footer>
+<footer>Marea Roja Cuotas · Versión 14 corregida — estadísticas por mes, guardado y copias de seguridad</footer>
 </main>
 <script>
 const KEY='marea_roja_cuotas_v2'; // Se conserva la clave para no perder los datos existentes
@@ -123,7 +123,7 @@ function persist(){
 function showForm(id=null){
  editId=id;formCardEl.classList.remove('hidden');
  if(id!==null){
-  const p=players.find(x=>x.id===id);if(!p)return;
+  const p=players.find(x=>String(x.id)===String(id));if(!p)return;
   formTitleEl.textContent='Editar jugador';nameEl.value=p.name||'';catEl.value=p.cat||'';phoneEl.value=p.phone||'';
   monthEl.value=p.month||months[new Date().getMonth()];amountEl.value=p.amount||'';
   statusEl.value=p.status||'debe';methodEl.value=p.method||'Efectivo';dateEl.value=p.date||'';
@@ -141,12 +141,12 @@ function savePlayer(){
  const obj={id:editId!==null?editId:Date.now(),name:playerName,cat:catEl.value.trim(),phone:phoneEl.value.trim(),
   month:monthEl.value,amount:Number(amountEl.value)||0,status:statusEl.value,
   method:methodEl.value,date:dateEl.value};
- if(editId!==null)players=players.map(p=>p.id===editId?obj:p);else players.push(obj);
+ if(editId!==null)players=players.map(p=>String(p.id)===String(editId)?obj:p);else players.push(obj);
  if(persist()){hideForm();alert('Jugador guardado correctamente.');}
 }
-function del(id){if(confirm('¿Eliminar este jugador?')){players=players.filter(p=>p.id!==id);persist();}}
+function del(id){if(confirm('¿Eliminar este jugador?')){players=players.filter(p=>String(p.id)!==String(id));persist();}}
 function toggle(id){
- const p=players.find(x=>x.id===id);if(!p)return;
+ const p=players.find(x=>String(x.id)===String(id));if(!p)return;
  p.status=p.status==='pago'?'debe':'pago';
  if(p.status==='pago'&&!p.date)p.date=new Date().toISOString().slice(0,10);
  persist();
@@ -158,9 +158,9 @@ function render(){
  <h3>${esc(p.name)}</h3><div>${esc(p.cat||'Sin categoría')} · ${esc(p.month||'')}</div>
  <p><b>$${Number(p.amount||0).toLocaleString('es-AR')}</b> · <span class="badge ${p.status==='pago'?'paid':'debt'}">${p.status==='pago'?'PAGÓ':'DEBE'}</span></p>
  ${p.status==='pago'?`<small>${esc(p.method||'')} · ${esc(p.date||'')}</small>`:''}
- <div class="actions" style="margin-top:10px"><button class="primary" onclick="toggle(${JSON.stringify(p.id)})">${p.status==='pago'?'Marcar como debe':'Marcar pagó'}</button>
- <button onclick="sendWhatsApp(${JSON.stringify(p.id)},'recordatorio')">📲 Recordatorio</button><button onclick="sendWhatsApp(${JSON.stringify(p.id)},'boleta')">🧾 Boleta por WhatsApp</button><button onclick="shareReceiptImage(${JSON.stringify(p.id)})">🖼️ Recibo formal en imagen</button><button onclick="printReceipt(${JSON.stringify(p.id)})">🖨️ Ver/imprimir boleta</button>
- <button onclick="showForm(${JSON.stringify(p.id)})">Editar</button><button class="danger" onclick="del(${JSON.stringify(p.id)})">Eliminar</button></div></div>`).join('')
+ <div class="actions" style="margin-top:10px"><button class="primary" onclick="toggle(decodeURIComponent('${encodeURIComponent(String(p.id))}'))">${p.status==='pago'?'Marcar como debe':'Marcar pagó'}</button>
+ <button onclick="sendWhatsApp(decodeURIComponent('${encodeURIComponent(String(p.id))}'),'recordatorio')">📲 Recordatorio</button><button onclick="sendWhatsApp(decodeURIComponent('${encodeURIComponent(String(p.id))}'),'boleta')">🧾 Boleta por WhatsApp</button><button onclick="shareReceiptImage(decodeURIComponent('${encodeURIComponent(String(p.id))}'))">🖼️ Recibo formal en imagen</button><button onclick="printReceipt(decodeURIComponent('${encodeURIComponent(String(p.id))}'))">🖨️ Ver/imprimir boleta</button>
+ <button onclick="showForm(decodeURIComponent('${encodeURIComponent(String(p.id))}'))">Editar</button><button class="danger" onclick="del(decodeURIComponent('${encodeURIComponent(String(p.id))}'))">Eliminar</button></div></div>`).join('')
  :' <p style="color:#777">Todavía no hay jugadores cargados.</p>';
  const selectedMonth=$('historyMonth').value || months[new Date().getMonth()];
  const monthRows=players.filter(p=>(p.month||'')===selectedMonth);
@@ -234,7 +234,7 @@ function exportMonthlyCSV(){
  setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 function money(n){return '$'+Number(n||0).toLocaleString('es-AR');}
-function playerById(id){return players.find(p=>p.id===id);}
+function playerById(id){return players.find(p=>String(p.id)===String(id));}
 function sendWhatsApp(id,type){
  const p=playerById(id);if(!p)return;
  const phone=String(p.phone||'').replace(/\D/g,'');
@@ -322,7 +322,7 @@ function printReceipt(id){
 }
 
 function exportData(){
- const backup={app:'MAREA ROJA F.C. – Cuotas',version:13,exportedAt:new Date().toISOString(),players};
+ const backup={app:'MAREA ROJA F.C. – Cuotas',version:14,exportedAt:new Date().toISOString(),players};
  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),a=document.createElement('a');
  a.href=URL.createObjectURL(blob);a.download='marea-roja-cuotas-backup.json';a.click();
  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
@@ -384,14 +384,14 @@ function prepareDebtorMessages(){
  const debtors=players.filter(p=>p.month===month&&p.status!=='pago');
  const box=$('bulkReminders');
  if(!debtors.length){box.innerHTML='<p>¡No hay deudores registrados para '+esc(month)+'.</p>';return;}
- box.innerHTML='<h3>Deudores de '+esc(month)+' ('+debtors.length+')</h3>'+debtors.map(p=>`<div class="player"><b>${esc(p.name)}</b> · ${money(p.amount)}<div style="margin-top:8px"><button class="primary" onclick="sendWhatsApp(${JSON.stringify(p.id)},'recordatorio')">📲 Preparar mensaje</button></div></div>`).join('');
+ box.innerHTML='<h3>Deudores de '+esc(month)+' ('+debtors.length+')</h3>'+debtors.map(p=>`<div class="player"><b>${esc(p.name)}</b> · ${money(p.amount)}<div style="margin-top:8px"><button class="primary" onclick="sendWhatsApp(decodeURIComponent('${encodeURIComponent(String(p.id))}'),'recordatorio')">📲 Preparar mensaje</button></div></div>`).join('');
 }
 monthEl.innerHTML=months.map(m=>`<option>${m}</option>`).join('');
 $('historyMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
 $('reminderMonth').innerHTML=months.map(m=>`<option>${m}</option>`).join('');
 loadPlayers();monthEl.value=months[new Date().getMonth()];$('historyMonth').value=months[new Date().getMonth()];$('reminderMonth').value=months[new Date().getMonth()];dateEl.value=new Date().toISOString().slice(0,10);
 searchEl.addEventListener('input',render);
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=13').catch(()=>{});
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js?v=14').catch(()=>{});
 render();
 </script>
 </body></html>
